@@ -1,50 +1,47 @@
-const { PrismaClient } = require("@prisma/client");
+require("dotenv").config();
+const { Pool } = require("pg");
 const { PrismaPg } = require("@prisma/adapter-pg");
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-const prisma = new PrismaClient({ adapter });
+const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { isValidEmail } = require("../utils/validation");
 
-const registerUser = async (email, password, name) => {
-  if (!name || !email || !password) {
-    throw new Error("name, email y password son obligatorios");
-  }
-  if (!isValidEmail(email)) {
-    throw new Error("El correo electrónico no es válido");
-  }
-  const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) {
-    throw new Error("El correo ya está registrado");
-  }
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = await prisma.user.create({
-    data: {
-      email,
-      password: hashedPassword,
-      name,
-      role: "USER",
-    },
-  });
-  return newUser;
-};
+// Configuración del Pool de pg para soporte SASL con Docker
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const loginUser = async (email, password) => {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
   if (!user) {
-    throw new Error("Invalid email or password");
+    throw new Error("Credenciales inválidas");
   }
-  const validPassword = await bcrypt.compare(password, user.password);
-  if (!validPassword) {
-    throw new Error("Invalid email or password");
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    throw new Error("Credenciales inválidas");
   }
+
   const token = jwt.sign(
-    { id: user.id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: "4h" },
+    { id: user.id, email: user.email, role: user.role },
+    process.env.JWT_SECRET || "secreto",
+    { expiresIn: "24h" }
   );
-  return token;
+
+  return {
+    token,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    },
+  };
 };
 
-module.exports = { registerUser, loginUser };
+module.exports = {
+  loginUser,
+  login: loginUser,
+};
