@@ -40,7 +40,7 @@ async function main() {
     data: { court: "Básquet 4", startTime: "10:00", endTime: "12:00" },
   });
 
-  // 4) Reservas (fecha de la variante) vinculadas con connect
+  //  Reservas 
   const booking1 = await prisma.booking.create({
     data: {
       date: "2026-11-20",
