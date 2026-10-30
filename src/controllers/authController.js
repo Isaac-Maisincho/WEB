@@ -1,22 +1,19 @@
-const { registerUser, loginUser } = require("../services/authService");
-const register = async (req, res) => {
-  try {
-    const { email, password, name } = req.body;
-    await registerUser(email, password, name);
-    return res.status(201).json({ message: "User registered successfully" });
-  } catch (error) {
-    return res.status(400).json({ error: error.message });
-  }
-};
+const authService = require("../services/authService");
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const token = await loginUser(email, password);
-    return res.json({ token });
+    const result = await authService.loginUser(email, password);
+    return res.status(200).json(result);
   } catch (error) {
-    return res.status(400).json({ error: error.message });
+    if (error.message === "Credenciales inválidas") {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
   }
 };
 
-module.exports = { register, login };
+module.exports = {
+  login,
+  loginUser: login,
+};
